@@ -285,11 +285,11 @@ The integer indicates the index of the element to load/store.
 Structured control flow instructions occupy an entire line with the exception of `end`, which may be followed by more `end` instructions.
 Webassembler features two structured control flow instructions, `if` and `loop`. They can be nested and must always be concluded by a matching `end` instruction.
 ```
-loop identifier
+loop [identifier]
 [instruction expression]...
 end
 ```
-Unlike in WebAssembly, a loop always repeats the contained instructions until broken by explicit control flow.
+Unlike in WebAssembly, a loop jumps back to the start from the end instruction so a branch is necessary to break from the loop. Every loop contains the implicit label `break`, which jumps to the instruction following the loop.
 ```
 if [instruction expression]
 [instruction expression]...
@@ -302,7 +302,7 @@ The optional instruction expression immediately following an `if` instruction sp
 ```
 identifier:
 ```
-A label denotes a position in the code and occupies an entire line.
+A label denotes a position in the code and occupies an entire line. The identifier `break` cannot be used as a label.
 ### Branch Instructions
 ```
 br identifier

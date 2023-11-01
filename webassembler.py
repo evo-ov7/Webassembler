@@ -243,6 +243,14 @@ def parse_function_type(tokens):
     output+=")"
   return output,function_type
 
+def parse_label(token):
+  output=""
+  if token =="break":
+    output="$break"
+  else:
+    output="$"+token+":"
+  return output
+
 def finalize_instruction(instruction,output):
   if instruction.results==["same"]:
     if len(instruction.inputs)>1 and instruction.kind not in{"replace_lane","extract_lane","shr","shl"}:
@@ -460,11 +468,14 @@ def parse_instruction(instruction,tokens,function,module,context):
           table=tokens.pop(0)
           table=table.split(",")
           for label in table:
-            instruction.body+=" $"+label+":"
-        instruction.body+=" $"+tokens.pop(0)
-        if token in {"br","br_if"}:
-          instruction.body+=":"
-        elif token == "table.copy":
+            instruction.body+=" "+parse_label(label)
+
+        if token in {"br","br_if","br_table"}:
+          instruction.body+=" "+parse_label(tokens.pop(0))
+        else:
+          instruction.body+=" $"+tokens.pop(0)
+        
+        if token == "table.copy":
           instruction.body+=" $"+tokens.pop(0)
         elif token == "call_indirect":
           if tokens[0][0]=="(":
@@ -770,6 +781,14 @@ def parse_function_body(function,module):
                 block.ifblock.name=line.pop(0)
               else:
                 block.name=line.pop(0)
+            if block.kind=="loop":
+              label = types.SimpleNamespace()
+              label.name = "break"
+              label.results = ""
+              if function.stack:
+                label.results = "(result"+stack_to_string(function.stack)+")"
+              block.labelstack.append(label)
+              output+="br 1 end $break end"
             if block.kind !="else":
               indent=" "
               if not block.nested:
@@ -785,14 +804,10 @@ def parse_function_body(function,module):
             if debug:
               print(function.lines[block.position])
               print(output_body[block.position])
-            if block.kind=="loop":
-              output+="end"
-              if block.name:
-                output+=" $"+block.name
-            else:
+            if block.kind!="loop":
               output+="))"
-              if block.name and (not line or line[0]!="end"):
-                output+=";;"+block.name
+              if block.name:
+                comment+=" "+block.name
             if line and line[0]=="end":
               output+=" "
         else:
