@@ -96,7 +96,10 @@ global:identifier=
 Variable instructions read or write values from or to a variable. If the identifier is prefixed or suffixed by `=` then the variable is written to. If the `=` is prefixed then the instruction does not consume its input value from the stack. The identifier may be prefixed with `global:`, in that case it refers to a global variable. The identifier may have at most one of the two prefixes.
 
 ### Variable Declarations
-`type identifier` - If the first instruction of a line is a type, then it declares the type of the following identifier. As WebAssembly is statically typed, all variables need to be declared before their first use. Note that a declaration does not terminate the instruction expression and may immediately be followed by an assignment to the declared variable.
+```
+type identifier [identifier]... [identifier=] [instruction expression]
+```
+If the first instruction of a line is a type, then it declares the type of the following identifier. As WebAssembly is statically typed, all variables need to be declared before their first use. Note that a declaration does not terminate the instruction expression and may immediately be followed by further identifiers to be declared as type or an assignment to the last declared variable.
 
 ### Typeconversion Instructions
 Any type can occur as an instruction indicating a typeconversion into that type. Note that not all combinations of types can be converted, see the WebAssembly Specification for details. In addition, the instructions `lowx2` and `highx2` will convert a vector to double the elementsize by sign-extending its lower/upper half.

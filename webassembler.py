@@ -813,13 +813,17 @@ def parse_function_body(function,module):
             blockstack.append(block)
       else:
         if token in variable_types:
-          name,access = parse_identifier(line[1])
-          type=parse_type(token)
-          function.locals[name]=type
-          function.head+="(local $"+name+" "+type.canonical+")"
           line.pop(0)
-          if access =="read":
-            line=[]
+          while line:
+            name,access = parse_identifier(line[0])
+            type=parse_type(token)
+            function.locals[name]=type
+            function.head+="(local $"+name+" "+type.canonical+")"
+            if access == "read":
+              line.pop(0)
+            else:
+              break
+          if not line:
             declarations.add(linecount)
         if line:
           output+=parse_expression(line,function,module,context)
