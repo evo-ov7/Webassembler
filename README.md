@@ -21,21 +21,21 @@ x= a add b
 (local.set $x (local.get $a) (i32.add (local.get $b)))
 ```
 ```
-[pointer |f32]= div y 2.5
+[pointer ]= div f 2.5
 ```
 ```
-(f32.store (local.get $pointer) (f32.div(local.get $y) (f32.const 2.5)))
+(f32.store (local.get $pointer) (f32.div(local.get $f) (f32.const 2.5)))
 ```
 Here is a more complex example:
 ```
 s32x test= 1,2,3,4,5,0x6,+7,8 extmul_low s16x -1 mul asi32x f64x not i32x 7
 ```
 ```
-(local.set $test (v128.const i16x8 1 2 3 4 5 0x6 +7 8) (i32x4.extmul_low_i16x8_s (i16x8.splat (i32.const -1))) (i32x4.mul  (f64x2.convert_low_i32x4_u (v128.not (i32x4.splat (i32.const 7))))))
+(local $test v128)(local.set $test (v128.const i16x8 1 2 3 4 5 0x6 +7 8) (i32x4.extmul_low_i16x8_s (i16x8.splat (i32.const -1))) (i32x4.mul  (f64x2.convert_low_i32x4_u (v128.not (i32x4.splat (i32.const 7))))))
 ```
 # Syntax
 
-The fundamental element of Webassembler is the word, separated from other words by [ASCII](https://en.wikipedia.org/wiki/ASCII) space, line feed, parentheses `(` `)` or `;`. A word may be a [string](https://webassembly.github.io/spec/core/text/values.html#strings), [identifier](https://webassembly.github.io/spec/core/text/values.html#text-id),[integer](https://webassembly.github.io/spec/core/text/values.html#integers), [floating-point](https://webassembly.github.io/spec/core/text/values.html#floating-point), Webassembler symbol, special instruction/section encoding or part of a comment. Any word that is not a Webassembler symbol or part of a special instruction/section encoding is:
+The fundamental element of Webassembler is the word, separated from other words by [ASCII](https://en.wikipedia.org/wiki/ASCII) space, line feed, parentheses `(`,`)`,`[` or `;`. A word may be a [string](https://webassembly.github.io/spec/core/text/values.html#strings), [identifier](https://webassembly.github.io/spec/core/text/values.html#text-id),[integer](https://webassembly.github.io/spec/core/text/values.html#integers), [float](https://webassembly.github.io/spec/core/text/values.html#floating-point), Webassembler symbol, special instruction/section encoding or part of a comment. Any word that is not a Webassembler symbol or part of a special instruction/section encoding is:
 
 a number, if it starts with a decimal digit `0-9`, a sign `-+` or is a [special floating-point constant](https://webassembly.github.io/spec/core/text/values.html#floating-point),
 
@@ -45,7 +45,7 @@ an identifier, if it only contains the ASCII alphabet and [some special characte
 
 part of a comment, if it follows a `;`.
 
-The syntax described here uses standard notation, where an expression in square brackets denotes an optional `[word]` and `|` separates mutually exclusive words. Additionally, `'['` and `']'` are used to represent literal `[` and `]` where necessary.
+The syntax described here uses standard notation, where an expression in square brackets denotes an optional `[word]` and `|` separates mutually exclusive words. Additionally, `'['` , `']'` and `'|'` are used to represent literal `[` , `]` and `|` where necessary.
 
 ## Types
 
@@ -241,7 +241,7 @@ table.copy   ; copy z entries from offset y of table2 to offset x of table1
 ## Memory Access Instructions
 Memory access instructions use a special syntax to encode the multitude of possible operations. They always start with `[` and end with either `]` to indicate a load or `]=` to indicate a store.
 ```
-'['instruction expression [integer][,memorytype][,integer]']'[=]
+'['instruction expression ['|'[integer][,memorytype][,integer]]']'[=]
 ```
 The instruction expression has to evaluate to the address of the memory access. The first integer is a constant offset to add to the address. The memorytype specifies the type to load as any ordinary type or one of many special memory types. The second integer specifies the alignment of the address, which may be no larger than the size of the memorytype.
 

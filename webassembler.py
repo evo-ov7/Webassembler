@@ -516,18 +516,19 @@ def parse_instruction(instruction,tokens,function,module,context):
     if subexpression:
       tokens.insert(0,"("+subexpression+")")
     immediate=immediate[1:]
-    immediates=immediate.split(",")
     offset=""
     memorytype=""
     alignment=""
-    if re.match(r'[a-z[]',immediates[0]):
-      memorytype=immediates.pop(0)
-    else:
-      offset=" offset="+immediates.pop(0)
-      if immediates and re.match(r'[a-z[]',immediates[0]):
+    if immediate:
+      immediates=immediate.split(",")
+      if re.match(r'[a-z[]',immediates[0]):
         memorytype=immediates.pop(0)
-    if immediates:
-      alignment=" align="+immediates.pop(0)
+      else:
+        offset=" offset="+immediates.pop(0)
+        if immediates and re.match(r'[a-z[]',immediates[0]):
+          memorytype=immediates.pop(0)
+      if immediates:
+        alignment=" align="+immediates.pop(0)
     lane=""
     if memorytype=="notify":
       instruction.kind="notify"
@@ -652,7 +653,7 @@ def parse_expression(tokens,function,module,context):
         instruction.stackframe=len(function.stack)
     output+=instruction.body
     instruction_stack.append(instruction)
-    while instruction_stack and (instruction_stack[-1].required_inputs==0 or not tokens or len(function.stack)-stackframe>=instruction_stack[-1].required_inputs and instruction_stack[-1].kind not in {"set","return"} and not (instruction_stack[-1].required_inputs==1 and instruction_stack[-1].old_stackframe==stackframe and instruction_stack[-1].stackframe==len(function.stack))):
+    while instruction_stack and (instruction_stack[-1].required_inputs==0 or not tokens or len(function.stack)-stackframe>=instruction_stack[-1].required_inputs and instruction_stack[-1].kind not in {"set"} and not (instruction_stack[-1].required_inputs==1 and instruction_stack[-1].old_stackframe==stackframe and instruction_stack[-1].stackframe==len(function.stack))):
       if debug >1:
         print(output)
         print(instruction_stack)
