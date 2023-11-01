@@ -835,6 +835,10 @@ def parse_function_body(function,module):
         print("stack: ",stack_to_string(function.stack))
       print()
     output_body.append(output)
+  for label in reversed(function.labelstack):
+    function.head+=" block $"+label.name
+    if label.results:
+      function.head+=" "+label.results
   output=""
   for linecount,line in enumerate(output_body):
     if linecount not in declarations:
