@@ -1,10 +1,10 @@
 import sys,re,types,copy,os
 
 flatten=True
-debug=1
+debug=0
 nodes={"module","func","table","memory","global","start","type"}
 
-canonical_types={"i32","i64","f64","f32","v128","ref"}
+canonical_types={"i32","i64","f64","f32","v128","funcref","externref"}
 vector_types={"i8x","s8x","i16x","s16x","i32x","s32x","i64x","s64x","f32x","f64x"}
 simulated_types={"s32","s64"}|vector_types
 singular_types={"i32","i64","f64","f32","ref","s32","s64"}
@@ -32,11 +32,11 @@ unary_instructions={"clz","ctz","popcnt","abs","neg","ceil","floor","trunc","nea
 binary_instructions={"add","sub","mul","and","or","xor","shl","rotl","rotr","min","max","copysign","eq","ne","shuffle","swizzle","andnot","narrow","add_sat","sub_sat","dot","extmul_low","extmul_high","avgr","q15mulr_sat","pmin","pmax","table.set","table.grow"}|sign_instructions
 ternary_instructions={"select","bitselect","table.fill","table.copy","memory.fill","memory.copy","memory.init"}
 dynamic_arity_instructions={"call","call_indirect","return"}
-no_result={"br","unreachable","nop","drop","br_if","br_table","return","table.fill","table.copy","memory.fill","memory.copy","memory.init","data.drop","atomic.fence"}
+no_result={"br","unreachable","nop","drop","br_if","br_table","return","table.fill","table.copy","memory.fill","memory.copy","memory.init","data.drop","atomic.fence","table.set"}
 i32_result={"eqz","ref.is_null","any_true","all_true","bitmask","table.size","table.grow","memory.size","memory.grow"}
 ref_result={"ref.null","ref.func","table.get"}
 different_resulttype=typeconversion_instructions|{"call","call_indirect","narrow","extmul_low","extmul_high","extadd_pairwise","eq","ne","lt","gt","le","ge"}
-typeless_instructions=no_result|control_instructions|{"select","set","get","tee","subexpression","ref.is_null","atomic.fence"}|ref_result|table_instructions|memory_instructions
+typeless_instructions=no_result|control_instructions|{"select","set","get","tee","subexpression","ref.is_null","atomic.fence","notify"}|ref_result|table_instructions|memory_instructions
 static_returntype={"const"}
 static_vectortype={"not","and","andnot","or","xor","bitselect","any_true"}
 instructions=nullary_instructions|unary_instructions|binary_instructions|ternary_instructions|dynamic_arity_instructions
@@ -73,23 +73,25 @@ def error(context,token,message):
 
 def parse_type(string):
   type = types.SimpleNamespace()
+  if string in {"funcref,externref"}:
+    type.canonical=string
+    return type
   type.size = string[1:]
   if string[-1]=="x":
     type.size=string[1:-1]
-  elif string=="ref":
-    type.size=""
   type.canonical = string
   if string[-1]=="x":
     type.canonical="v128"
     type.shape=string+str(128//int(type.size))
   if string=="v128":
     type.shape="v128"
-  if string[0]=="s":
-    type.sign="s"
+  if string[0]in{"s","u"}:
     if type.canonical!="v128":
       type.canonical="i"+type.canonical[1:]
     else:
       type.shape="i"+type.shape[1:]
+  if string[0]=="s":
+    type.sign="s"
   else:
     type.sign="u"
   return type
@@ -127,14 +129,14 @@ def tokenize(line):
           token=""
           tokenpositions[-1][1]=i
     elif chara in {" ",";","(","[",'"'}:
-      if token:
+      if token and chara != "[":
         tokens.append(token)
         token=""
         tokenpositions[-1][1]=i
       if chara == ";":
         comment=chara
       if chara in {"(","["}:
-        token=chara
+        token+=chara
         tokenpositions.append([i,i+1])
         nested+=1
       if chara =='"':
@@ -233,7 +235,7 @@ def parse_function_type(tokens):
       function_type.params.append(type)
       output+=" "+type.canonical
     output+=")"
-  subtokens,_,_,_=tokenize(line.pop(0))
+  subtokens,_,_,_=tokenize(tokens.pop(0))
   if subtokens:
     output+="(result"
     while subtokens:
@@ -298,7 +300,7 @@ def finalize_instruction(instruction,output):
       elif instruction.kind in vector_types and destination_type.shape != source_type.shape:
         new_output=destination_type.shape
         if destination_type.shape[0]=="i":
-          new_output+=".trunc_sat_"+source_type.shape+"_"+source_type.sign
+          new_output+=".trunc_sat_"+source_type.shape+"_"+destination_type.sign
           if source_type.size=="64":
             new_output+="_zero"
         elif source_type.shape[0]=="i":
@@ -318,12 +320,15 @@ def finalize_instruction(instruction,output):
         new_output=None
     elif instruction.kind in sign_instructions:
       type1 = instruction.inputs[0]
-      type2 = instruction.inputs[1]
+      if instruction.kind not in {"extadd_pairwise","shr"}:
+        type2 = instruction.inputs[1]
+      else:
+        type2 = instruction.inputs[0]
       if type1.canonical[0]=="f" or (type1.canonical=="v128" and type1.shape[0]=="f"):
         if type1.canonical=="v128":
-          new_output=instruction.results[0].shape+"."+instruction.kind
+          new_output=type1.shape+"."+instruction.kind
         else:
-          new_output=instruction.results[0].canonical+"."+instruction.kind
+          new_output=type1.canonical+"."+instruction.kind
       else:
         if type1.sign !="u":
           instruction.results=[type1]
@@ -334,7 +339,7 @@ def finalize_instruction(instruction,output):
             source_type=instruction.results[0]
             sign=source_type.sign
             if instruction.kind=="dot":
-              source_type=parse_type("s"+source_type.shape[1:])
+              source_type=parse_type("s"+source_type.size+"x")
             if instruction.kind != "narrow":
               size=str(int(source_type.size)*2)
             else:
@@ -376,7 +381,7 @@ def finalize_instruction(instruction,output):
         memory_size=""
         if instruction.memorytype:
           if re.match(".*64$",instruction.memorytype):
-            destination_type=instruction.memorytype[:-3]
+            destination_type=instruction.memorytype[-3:]
             if instruction.memorytype[:-3]:
               memory_size=instruction.memorytype[1:-3]
           else:
@@ -392,21 +397,23 @@ def finalize_instruction(instruction,output):
         operation=instruction.kind
         if re.match("atomic",operation):
           operation=operation[7:]
+        if operation[0]=="a":
+          operation=operation[1:]
         new_output=instruction.inputs[1].canonical+".atomic."
         memorytype=""
         if instruction.memorytype:
-          memorytype=instruction.memorytype[1:]
+          memorytype=instruction.memorytype[3:]
         if instruction.kind != "atomic_store":
           new_output+="rmw"+memorytype+"."+operation
         else:
           new_output+="store"+memorytype
-        if instruction.memorytype:
+        if instruction.memorytype and instruction.kind!="atomic_store":
           new_output+="_u"
         new_output+=instruction.private_body
         
   elif instruction.kind not in typeless_instructions and instruction.kind not in static_returntype:
     type=None
-    if instruction.kind in {"store","eq","ne","all_true","bitmask"}:
+    if instruction.kind in {"store","eq","ne","eqz","all_true","any_true","bitmask"}:
       if len(instruction.inputs)>1:
         type=instruction.inputs[1]
       else:
@@ -446,7 +453,7 @@ def parse_instruction(instruction,tokens,function,module,context):
     elif token in i32_result:
       instruction.results=[parse_type("i32")]
     elif token in ref_result:
-      instruction.results=[parse_type("ref")]        
+      pass
     elif token in different_resulttype:
       if token in variable_types:
         instruction.results=[parse_type(token)]
@@ -463,6 +470,14 @@ def parse_instruction(instruction,tokens,function,module,context):
         indices=indices.split(",")
         for index in indices:
           instruction.body+=" "+index
+      elif token == "ref.null":
+        heaptype = tokens.pop(0)
+        instruction.results=[parse_type(heaptype+"ref")]
+        instruction.body+=" "+heaptype
+      elif token == "table.get":
+        table = tokens.pop(0)
+        instruction.results=[module.tables[table]]
+        instruction.body+=" $"+table
       else:
         if token == "br_table":
           table=tokens.pop(0)
@@ -474,7 +489,8 @@ def parse_instruction(instruction,tokens,function,module,context):
           instruction.body+=" "+parse_label(tokens.pop(0))
         else:
           instruction.body+=" $"+tokens.pop(0)
-        
+        if token == "ref.func":
+          instruction.results=[parse_type("funcref")]
         if token == "table.copy":
           instruction.body+=" $"+tokens.pop(0)
         elif token == "call_indirect":
@@ -484,11 +500,10 @@ def parse_instruction(instruction,tokens,function,module,context):
             name=tokens.pop(0)
             body+=" $"+name
             function_type=module.function_types[name]
-          instruction.required_inputs=len(function_type.params)
+          instruction.required_inputs=len(function_type.params)+1
           instruction.results=function_type.results
           instruction.body+=" "+body
-      
-    elif token in different_resulttype or token in sign_instructions:
+    elif token in different_resulttype-{"eq","ne","eqz"} or token in sign_instructions:
       instruction.body=""
     elif token in pseudo_instructions:
       if token in {"sx8","sx16","sx32"}:
@@ -551,9 +566,7 @@ def parse_instruction(instruction,tokens,function,module,context):
       instruction.required_inputs=3
       instruction.results=["same"]
     elif memorytype and memorytype not in memory_types and "[" not in memorytype:
-      operation2=re.match(r'[a-z]+',memorytype).group()
-      if operation2[-1]=="i":
-        operation2=operation2[:-1]
+      operation2=re.match(r'atomic|aadd|asub|axor|aor|aand|xchg|cmpxchg',memorytype).group()
       instruction.memorytype=memorytype[len(operation2):]
       if operation2[-3:] == "low":
         operation2=operation2[:-3]
@@ -616,7 +629,7 @@ def parse_instruction(instruction,tokens,function,module,context):
       instruction.body+=offset+alignment+lane
     else:
       instruction.private_body=offset+alignment+lane
-  elif re.match(r'[-+]?([0-9]|inf$|inf,|nan,|nan$|nan:0x)',token):
+  elif re.match(r'[-+]?([0-9]|(inf|nan)_?($|,)|nan:0x)',token):
     instruction.kind="const"
     instruction.required_inputs=0
     instruction.body,type = parse_const(token)
@@ -636,8 +649,6 @@ def parse_expression(tokens,function,module,context):
   instruction_stack=[]
   output=""
   while tokens:
-    if output:
-      output+=" "
     instruction=types.SimpleNamespace()
     instruction.required_inputs=0
     instruction.inputs=[]
@@ -660,16 +671,15 @@ def parse_expression(tokens,function,module,context):
     else:
       parse_instruction(instruction,tokens,function,module,context)
       if instruction.required_inputs==1:
-        instruction.old_stackframe=stackframe
-        instruction.stackframe=len(function.stack)
+        instruction.old_output=len(output)+len(instruction.body)
     output+=instruction.body
     instruction_stack.append(instruction)
-    while instruction_stack and (instruction_stack[-1].required_inputs==0 or not tokens or len(function.stack)-stackframe>=instruction_stack[-1].required_inputs and instruction_stack[-1].kind not in {"set"} and not (instruction_stack[-1].required_inputs==1 and instruction_stack[-1].old_stackframe==stackframe and instruction_stack[-1].stackframe==len(function.stack))):
-      if debug >1:
-        print(output)
-        print(instruction_stack)
+    while instruction_stack and (instruction_stack[-1].required_inputs==0 or not tokens or len(function.stack)-stackframe>=instruction_stack[-1].required_inputs and instruction_stack[-1].kind not in {"set"} and not (instruction_stack[-1].required_inputs==1 and instruction_stack[-1].old_output==len(output))):
       instruction=instruction_stack.pop()
       if instruction.required_inputs==0:
+        if debug >1:
+          print(output)
+          print(instruction)
         output=finalize_instruction(instruction,output)
         function.stack.extend(instruction.results)
       else:
@@ -677,11 +687,14 @@ def parse_expression(tokens,function,module,context):
           error(context,[0,len(context.line)],"not enough values on the stack")
         instruction.inputs.extend(function.stack[-instruction.required_inputs:])
         function.stack=function.stack[:-instruction.required_inputs]
+        if debug >1:
+          print(output)
+          print(instruction)
         output=finalize_instruction(instruction,output)
         function.stack.extend(instruction.results)
-    if debug>1:
-      print(output)
-      print(instruction_stack)
+      if debug >1:
+          print(output)
+    output+=" "
   return output
 
 def parse_single_block_header(tokens,position,function,module,context):
@@ -885,6 +898,7 @@ def parse_module(tokens,context):
   module.functions={}
   module.globals={}
   module.function_types={}
+  module.tables={}
   module.name=""
   linecount=0
   while linecount< len(tokens):
@@ -974,14 +988,19 @@ def parse_module(tokens,context):
       elif line[0]=="table":
         line.pop(0)
         head="(table"
-        head+=" $"+line.pop(0)
+        name=line.pop(0)
+        head+=" $"+name
+        head+=parse_export_import(line,name)
         head+=" "+line.pop(0)
-        head+=" "+line.pop(0)
-        if line:
+        if len(line)>1:
           head+=" "+line.pop(0)
+        type=line.pop(0)
+        module.tables[name]=parse_type(type)
+        head+=" "+type
         table = types.SimpleNamespace()
         table.kind="table"
         table.head=head+")"
+        table.name=name
         module.body.append(table)
       elif line[0]=="start":
         line.pop(0)
@@ -1009,7 +1028,7 @@ def parse_module(tokens,context):
         if datastring[0]=='"':
           head+=" "+datastring+")"
         else:
-          head+='"'
+          head+=' "'
           i=0
           while i<len(datastring):
             head+="\\"+datastring[i:i+2]
@@ -1025,12 +1044,17 @@ def parse_module(tokens,context):
         name=line.pop(0)
         head+=" $"+name
         head+=parse_export_import(line,name)
+        mut=False
         if line[0]=="mut":
           line.pop(0)
-          head+=" mut"
+          mut=True
+          head+=" (mut"
         type=parse_type(line.pop(0))
         module.globals[name]=type
-        head+=" "+type.canonical+")"
+        head+=" "+type.canonical
+        if mut:
+          head+=")"
+        head+= " "+parse_const(line.pop(0))[0]+")"
         globalist = types.SimpleNamespace()
         globalist.kind="global"
         globalist.head=head
@@ -1061,7 +1085,7 @@ if sys.argv[2]=="-y":
 elif os.path.isfile(outputfilename):
   print("file exists, not overwriting")
   sys.exit(1)
-with open(inputfilename,"r") as f:
+with open(inputfilename,"r",encoding='utf_8') as f:
   programm = f.read()
 lines = programm.split("\n")
 tokens=[]
@@ -1082,5 +1106,5 @@ context.indentations=indentations
 module= parse_module(tokens,context)
 if debug:
   print(module)
-with open(outputfilename,"w") as f:
+with open(outputfilename,"w",encoding="utf_8") as f:
   f.write(module)

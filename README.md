@@ -175,12 +175,12 @@ rotr      ; bitrotation right of integer x by integer y
 min       ; the minimum of floats/vectors x and y
 max       ; the maximum of floats/vectors x and y
 copysign  ; copy sign of float y to float x
-eq        ; 1 if x is equal to y, 0 otherwise
-ne        ; 0 if x is equal to y, 1 otherwise
-lt        ; 1 if x is less than y, 0 otherwise
-gt        ; 1 if x is greater than y, 0 otherwise
-le        ; 1 if x is less than or equal to y, 0 otherwise
-ge        ; 1 if x is greater than or equal to y, 0 otherwise
+eq        ; 1 if x is equal to y, 0 otherwise, elementwise for vectors
+ne        ; 0 if x is equal to y, 1 otherwise, elementwise for vectors
+lt        ; 1 if x is less than y, 0 otherwise, elementwise for vectors
+gt        ; 1 if x is greater than y, 0 otherwise, elementwise for vectors
+le        ; 1 if x is less than or equal to y, 0 otherwise, elementwise for vectors
+ge        ; 1 if x is greater than or equal to y, 0 otherwise, elementwise for vectors
 ```
 Inputs `x`,`y`,`z`:
 ```
@@ -229,7 +229,7 @@ table.get  ; reference at index x
 ```
 Inputs `x`,`y`:
 ```
-table.set   ; set reference at table index y to x
+table.set   ; set reference at table index x to y
 table.grow  ; append y new references with value x to the table
 ```
 
@@ -265,7 +265,7 @@ These types indicate a write of only the low 8/16/32 bits to memory.
 ```
 atomic
 ```
-This type indicates an atomic read/write. It may be suffixed with any of the non-atomic non-vector special memory types (for example `atomici8i64`). There are also a number of other atomic operations, which can be performed during a memory access:
+This type indicates an atomic read/write. It may be suffixed with any of the non-atomic non-vector special memory types (for example `atomici8i64`). There are also a number of other atomic operations, which can be performed during a memory write:
 ```
 aadd asub aor axor aand xchg cmpxchg
 ```
@@ -275,7 +275,10 @@ wait notify
 ```
 These are never suffixed.
 ### Vector Memorytypes
-In addition to the ordinary vectortypes, a vector may also load/store only a single element.
+```
+i8x8 s8x8 i16x4 s16x4 i32x2 s32x2 i8x1 i16x1 i32x1 i64x1 s8x1 s16x1 s32x1 s64x1 f32x1 f64x1 i32x0 i64x0 s32x0 s64x0 f32x0 f64x0
+```
+In addition to these special vectortypes, a vector may also load/store only a single element.
 ```
 '['integer']'[=]
 ```
@@ -353,10 +356,16 @@ The strings specify the name of the imported/exported section. If the export str
 `data identifier string|rawhex` - rawhex is any sequence of hexadecimal digits.
 
 ### Table
-`table identifier integer [integer] funcref|externref` - the integers are the initial and maximum size of the table.
+```
+table identifier [import&export] integer [integer] funcref|externref
+```
+The integers are the initial and maximum size of the table.
 
 ### Global
-`global identifier [import&export] [mut] type` - declares a global variable with name identifier.
+```
+global identifier [import&export] [mut] type instruction expression
+```
+Declares a global variable with name identifier initialized by a constant instruction expression.
 
 ### Type
 `type identifier [([type]...)] [([type]...)]` - specifies the function signature named identifier.

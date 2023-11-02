@@ -1,0 +1,211 @@
+module test
+
+memory 0xf 0x1fff shared
+data testdata1 "⹝␵⾋⟌⭡␽⩏ⅸ↢⧠⨻➻⒐⫄⎏⻱⃖╜╨◼⑁⩵⭌Ⓓ⏿⣏⑝―␳⢂⪵❽⦱✣₫␪≷╾⭂⸸⛿₄⭜⊜⿥⦶⒧┙⮜₮⳾⸐⋥⠻␦ℯ⻜⩤⚮⅚⬉⦥ⓖ⽾⮪⑊⯞∜⟭∇✺⃉⬔Ⱳ⮌⊌⫴ⰱ⪺⺒ⴳ╔⍡⸞⊌ⴇⲥ☣Ⰷ⋜❺⾍⛗␓␊⎥⍙ⷪ⒉⛔"
+data testdata2 deadbeef
+table functiontable 10 100 funcref
+table functiontable2 10 100 funcref
+global g export "gee" mut s64 +42_
+type unary (i32)(i32)
+func returnal ()(i64 f32 i32)
+  return 999_ -0.5 1
+)
+func nullary
+)
+func testfunc
+  i64 a
+  f32 b
+  i32 c w d
+  a= b= c= call returnal
+  f32 x y z= 4.2
+
+  b= neg add x y
+  b= x neg add y
+
+  b= add neg x y
+  b= neg x add y
+  b= neg x y add
+
+  b= add x neg y
+  b= x add neg y
+  b= x neg y add
+
+  c= i32 rem global:g 4_
+  global:g= -1_
+  -2. =x =y =z b=
+  v128 vectorcaster= asv128 ass16x asf64x asi32x asi8x ass64x 0,0
+  s64 rollercaster= ass asf sx16 asi f64 asf asi 0.1
+  i32 converter= i32 ass f32 f64 asi f32 sx32 s64 ass 0xffffffff
+  s8x shrink=  narrow i16x 0 (narrow 0,0,0,0 s32x asf64x asv128 0,0)
+  f64 double=  x[1] f64x extadd_pairwise (extmul_low i8x 1 [40 |2,i8x,16])
+  v128 grow= asv128 lowx2 lowx2 lowx2 i8x 1
+  f32 nani= nan add inf mul -inf sub nan:0x71_beef
+  f64 nand= nan_ add inf_ mul -inf_ sub nan:0xdead_beef_
+  s32 hex= -0x8_0_0_00000
+  s64 hex2= -0x80000_000_00_000000_
+  f32 float= +260_43_4.2_64_34
+  double= -0xde_a_d.b_eef_
+  unreachable nop atomic.fence
+  i32 result= eqz clz ctz popcnt 0xc6a3_
+  f64 unaryf= abs neg ceil floor trunc nearest sqrt 2._
+  drop hex2
+  i32 success= memory.grow 2
+  s64 binary= 2_ add 2_ sub -6_ mul -3_ div 6_ rem 3_ and 0xf_ or 0_ xor 0xfff000_ shl 90_ shr -3_ rotl 3_ rotr 42_
+  f64 binaryf= 2._ add -2._ sub 0.5_ mul 0.534_ div 0.01_ min 0xffffffff._ max 1.0_ copysign -0._
+  i32 compare= 2 eq 2 ne 4 lt 8 gt 2 le 4 ge 4
+  compare= 2 ge -2 le 4 gt -1 sub 3 eq -2
+  f64 ternary= -1._ 1._ select (3 gt 2)
+  memory.fill 0 0x42 shl 1 16
+  memory.copy 42 0 100
+  i8x vunary= not popcnt abs neg s8x -7
+  compare= bitmask vunary
+  compare= any_true vunary
+  compare= all_true vunary
+  f32x vfloat= sqrt abs neg f32x 3499463.
+  i8x vx vy vz
+  i16x vvx vvy vvz
+  i32x vvvx
+  i64x vvvvx vvvvy
+  i64x vtest= vx add vy sub vz shl 3 shr 4 swizzle vx andnot vy add_sat vz sub_sat vx min vz max vx avgr vz extmul_high extadd_pairwise vx q15mulr_sat vvy mul vvz add vvx sub vvz shr 6 dot extadd_pairwise vx extmul_high vvvx mul vvvvx sub vvvvy add vvvvx shr 34
+  f32x fx fy fz
+  v128 vbits= bitselect fx fy fz
+  f64x ffx
+  f64x ftest= fx add fy sub fz mul fx div fz min fx max fz pmin fx f64x pmin fz add ffx sub ffx mul ffx div ffx min ffx max ffx pmin ffx pmax ffx
+  fx= f32x f64x s32x f64x f32x vvvx
+  result= table.size functiontable
+  result= ref.is_null table.get functiontable 0
+  table.set functiontable  2 ref.null func
+  result= table.grow functiontable ref.null func 10
+  memory.init testdata1 42 0 100
+  ;table.fill functiontable 4 ref.func nullary 10  wat2wasm rejects this with a nonsense error message
+  table.copy functiontable2 functiontable  0 4 5 
+  i32 pointer= 7
+  result= [pointer add 2 |6,s8]
+  result= [pointer shl 4 |6,s16]
+  s64 long= [pointer |s8s64]
+  long= [pointer |i16i64]
+  long= [pointer |i32i64]
+  [pointer |low8]= 0xff
+  [pointer |low16]= 0xeff_
+  [pointer |low32]= 0xff_
+  result= [pointer |atomic]
+  result= [pointer |atomics8]
+  long= [pointer |atomics8s64]
+  long= [pointer |atomici32i64]
+  [pointer |atomic]= 2
+  [pointer |atomiclow8]= 4
+  [pointer |atomiclow32]= 6_
+  result= [pointer |aadd]= 5
+  result= [pointer |axorlow8]= 5
+  result= [pointer |aorlow16]= 5
+  result= [pointer |asub]= 5
+  result= [pointer |aandlow8]= 5
+  result= [pointer |xchg]= 5
+  long= [pointer |aaddlow32]= 5_
+  long= [pointer |asub]= 5_
+  long= [pointer |xchglow32]= 5_
+  result= [pointer |cmpxchg]= 5 1
+  long= [pointer |cmpxchglow32]= 5_ 3_
+  result= [pointer |notify]= 2
+  result= [pointer |wait]= 2 1000000000_
+  vx= [pointer |i8x]
+  br_if total_skip result
+  loop
+    vy= vx
+    vx any_true ge vy br_if break
+  end
+  loop mainloop:
+    if all_true eq vvx vvy
+      vx= vy
+      br break
+    else if all_true ne vvx not vvy
+      loop
+        br no_if
+        vy= vx
+        if any_true  ge fx fy
+          br mainloop
+        else
+          br break
+        end
+        br in_between
+       no_if:
+        br_table break,mainloop skip result
+        if eqz result
+          vz= vy
+        end 
+      end skip:
+    end end
+    vx= vz 
+   in_between:
+    drop 0
+  end
+ total_skip:
+  call_indirect functiontable2 ()() 4
+  vx= vy vz shuffle 0,1,2,31,30,25,5,29,17,0xf,11,15,3,7,3,5
+  vx= [pointer |[2]] vx
+  [pointer |[4]]= vx
+  result= vvvx x[2]
+  result= vz x[14]
+  vz= vz x[12]= 5
+)
+start testfunc
+func coolfunction(a f64 b s32 c i32)(i32)
+  return 2
+)
+func coolsyntax export "banana"(a i32 b i32)(i32 i64)
+  i32 integer pointer array
+  f32 float
+  f64 double
+  i64 long
+  s32 signed
+  s64 longsigned
+  i32 z y x= y add z mul (a sub 2) add 3
+  s32x test=  1,2,3,4,5,0x6,+7,8 extmul_low s16x -1 mul asi32x f64x not i32x 7  
+  [pointer sub 4 |2,low16,2]= div x 2
+  x= x add 2
+  x= [2 add array |i32] mul 4
+  f32 f
+  [pointer ]= div f 2.5
+  add x 2 =y mul 3 5
+  y= sub 5
+  long= ass asi f64 integer
+  long= add ass f64 asi integer 19_   ;~!@#$%^&*?+_<>.'`/=-\|: ,";(){}[]
+  x=
+  i32 i= add x 3
+  array= 0xadd1e55
+  shl i 2
+  add array
+  pointer=
+  [pointer |2]= add [pointer |7,f32,2] 1.2
+  i32 nested= add x 1 mul (sub y 2)
+  pointer
+  add ([ |s16]) call coolfunction 1._ y z
+  [clz x |1337,low8,1]=  sub 3 4
+  ;br skip2  not possible
+  loop loopname:
+    ;br skip2   not possible
+    br lapel
+    br loopname
+  lapel:
+    x gt y
+    br_if break
+  end 
+  z
+  if x ge y or (z lt x)
+    x=
+  else
+    y=
+  end
+  if x
+    z= 2
+  end
+  if eqz z
+    x=
+  else if lt z y
+    y= 2
+    end lapl2:
+    z=
+  end break2:
+  1
+  0_
+)
