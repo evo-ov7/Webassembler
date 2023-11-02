@@ -35,7 +35,7 @@ s32x test= 1,2,3,4,5,0x6,+7,8 extmul_low s16x -1 mul asi32x f64x not i32x 7
 ```
 # Syntax
 
-The fundamental element of Webassembler is the word, separated from other words by [ASCII](https://en.wikipedia.org/wiki/ASCII) space, line feed, parentheses `(`,`)`,`[` or `;`. A word may be a [string](https://webassembly.github.io/spec/core/text/values.html#strings), [identifier](https://webassembly.github.io/spec/core/text/values.html#text-id),[integer](https://webassembly.github.io/spec/core/text/values.html#integers), [float](https://webassembly.github.io/spec/core/text/values.html#floating-point), Webassembler symbol, special instruction/section encoding or part of a comment. Any word that is not a Webassembler symbol or part of a special instruction/section encoding is:
+The fundamental element of Webassembler is the word, separated from other words by [ASCII](https://en.wikipedia.org/wiki/ASCII) space, line feed, parentheses `(`,`)`,`[` or `;`. A word may be a [string](https://webassembly.github.io/spec/core/text/values.html#strings), [identifier](https://webassembly.github.io/spec/core/text/values.html#text-id), [integer](https://webassembly.github.io/spec/core/text/values.html#integers), [float](https://webassembly.github.io/spec/core/text/values.html#floating-point), Webassembler symbol, special instruction/section encoding or part of a comment. Any word that is not a Webassembler symbol or part of a special instruction/section encoding is:
 
 a number, if it starts with a decimal digit `0-9`, a sign `-+` or is a [special floating-point constant](https://webassembly.github.io/spec/core/text/values.html#floating-point),
 
@@ -49,7 +49,7 @@ The syntax described here uses standard notation, where an expression in square 
 
 ## Types
 
-`i32`,`i64`,`f32`,`f64`,`ref`,`v128` - these words are the types defined by WebAssembly
+`i32`,`i64`,`f32`,`f64`,`funcref`,`externref`,`v128` - these words are the types defined by WebAssembly
 
 `s32`,`s64` - these words are signed types added by Webassembler
 
@@ -280,7 +280,7 @@ i8x8 s8x8 i16x4 s16x4 i32x2 s32x2 i8x1 i16x1 i32x1 i64x1 s8x1 s16x1 s32x1 s64x1 
 ```
 In addition to these special vectortypes, a vector may also load/store only a single element.
 ```
-'['integer']'[=]
+'['integer']'
 ```
 The integer indicates the index of the element to load/store.
 
